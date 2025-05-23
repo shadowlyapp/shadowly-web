@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import YouTubePlayer from "@/components/YouTubePlayer";
 import Transcript from "@/components/Transcript";
@@ -27,7 +27,7 @@ function extractYouTubeVideoId(urlString: string): string | null {
   }
 }
 
-export default function PlayerPage() {
+function PlayerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -327,5 +327,13 @@ export default function PlayerPage() {
         <div>© {new Date().getFullYear()} Shadowly. All rights reserved.</div>
       </footer>
     </>
+  );
+}
+
+export default function PlayerPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-gray-500">Loading player...</div>}>
+      <PlayerPage />
+    </Suspense>
   );
 }
