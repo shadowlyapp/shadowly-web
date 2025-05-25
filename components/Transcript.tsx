@@ -45,7 +45,7 @@ export default function Transcript({
 
   const handleWordClick = async (word: string, event: React.MouseEvent) => {
     try {
-      const res = await fetch("/api/translate", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ word, source: "en", target: targetLang }),
