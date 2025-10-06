@@ -1,33 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-
-# testing
-/coverage
-
-# Build output
+node_modules/
 .next/
 out/
-build/
-dist/
-
-# misc
 .DS_Store
-*.pem
-*.log
-*.tsbuildinfo
-
-# debug
-npm-debug.log*
-
-# Environment
 .env*
-.vercel
-.pnpm-debug.log*
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-dist/
