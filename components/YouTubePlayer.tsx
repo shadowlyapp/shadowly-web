@@ -107,7 +107,8 @@ export default function YouTubePlayer({ videoId, onReady, onTimeUpdate }: Props)
       return;
     }
 
-    const currentId = player.getVideoData?.().video_id;
+    const currentId = (player as { getVideoData?: () => { video_id?: string } }).getVideoData?.()
+      ?.video_id;
     if (currentId === videoId) {
       return;
     }

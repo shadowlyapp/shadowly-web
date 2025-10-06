@@ -24,18 +24,28 @@ export default function RecommendedVideos({ onSelectVideo }: { onSelectVideo: (i
         const data = await res.json();
 
         if (Array.isArray(data.videos)) {
-          const normalized = data.videos
-            .map((v) => {
-              const thumbnail = typeof v.thumbnail === "string" ? v.thumbnail.trim() : "";
-              return {
-                videoId: v.videoId || v.id,
-                title: v.title,
-                thumbnail: thumbnail || undefined,
-                language: v.language,
-                level: v.level,
-              } satisfies VideoItem;
-            })
-            .filter((video) => Boolean(video.videoId));
+          const sourceVideos = data.videos as Array<Partial<VideoItem> & { id?: string }>;
+          const normalized = sourceVideos.reduce<VideoItem[]>((acc, v) => {
+            const thumbnail = typeof v.thumbnail === "string" ? v.thumbnail.trim() : "";
+            const videoId =
+              typeof v.videoId === "string" && v.videoId.trim()
+                ? v.videoId.trim()
+                : typeof v.id === "string" && v.id.trim()
+                  ? v.id.trim()
+                  : "";
+            if (!videoId) {
+              return acc;
+            }
+
+            acc.push({
+              videoId,
+              title: v.title || "Untitled",
+              thumbnail: thumbnail || undefined,
+              language: v.language || "Unknown",
+              level: v.level,
+            });
+            return acc;
+          }, []);
 
           setVideos([...normalized, ...normalized, ...normalized]);
         }
