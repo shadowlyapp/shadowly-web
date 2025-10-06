@@ -1,47 +1,127 @@
+'use client';
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
-const videos = [
-  { id: "dQw4w9WgXcQ", title: "Never Gonna Give You Up", level: "Beginner English" },
-  { id: "3JZ_D3ELwOQ", title: "TED Talk in Spanish", level: "Beginner Spanish" },
-  { id: "L_jWHffIx5E", title: "Funny Comedy Skit", level: "English Listening" },
-  { id: "hTWKbfoikeg", title: "Japanese News Clip", level: "Casual Japanese" },
-];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
-export default function RecommendedVideos() {
-  const loopedVideos = [...videos, ...videos, ...videos];
+interface VideoItem {
+  videoId: string;
+  title: string;
+  thumbnail?: string;
+  language: string;
+  level?: string;
+}
+
+export default function RecommendedVideos({ onSelectVideo }: { onSelectVideo: (id: string) => void }) {
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+
+  useEffect(() => {
+    const fetchRandomVideos = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/recommend/random`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+
+        if (Array.isArray(data.videos)) {
+          const normalized = data.videos
+            .map((v) => {
+              const thumbnail = typeof v.thumbnail === "string" ? v.thumbnail.trim() : "";
+              return {
+                videoId: v.videoId || v.id,
+                title: v.title,
+                thumbnail: thumbnail || undefined,
+                language: v.language,
+                level: v.level,
+              } satisfies VideoItem;
+            })
+            .filter((video) => Boolean(video.videoId));
+
+          setVideos([...normalized, ...normalized, ...normalized]);
+        }
+      } catch (err) {
+        console.error("Failed to load recommended videos:", err);
+      }
+    };
+
+    fetchRandomVideos();
+  }, []);
 
   return (
-    <div className="overflow-hidden w-full py-8 bg-transparent relative">
-      <h2 className="text-center text-lg font-semibold mb-4">Try one of these to get started:</h2>
+    <div className="relative overflow-hidden w-full py-10">
+      <div
+        className="pointer-events-none absolute inset-0 hidden lg:block rounded-3xl border border-slate-200 bg-white"
+        aria-hidden="true"
+      />
+      <h2 className="relative text-center text-lg font-semibold text-slate-800 mb-6">
+        Jump into a ready-made shadowing session
+      </h2>
       <div className="relative w-full">
-        <div className="flex gap-4 animate-loop-scroll px-4 w-max">
-          {loopedVideos.map((video, idx) => (
-            <Link
-              href={`/player?id=${video.id}`}
-              key={idx}
-              className="w-[200px] min-w-[200px] bg-white shadow rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow"
-            >
-              <div className="relative aspect-video">
-                <Image
-                  src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}
-                  alt={video.title}
-                  fill
-                  className="object-cover"
-                />
+        {videos.length === 0 ? (
+          <div className="text-center text-slate-500 w-full py-8">
+            ⚠️ No recommended videos found.
+          </div>
+        ) : (
+          <div className="flex gap-6 animate-loop-scroll px-4 w-max">
+            {videos.map((video, idx) => (
+              <div
+                key={`${video.videoId}-${idx}`}
+                onClick={() => {
+                  if (video.videoId) {
+                    onSelectVideo(video.videoId);
+                  } else {
+                    console.warn("❌ No videoId found for clicked video:", video);
+                  }
+                }}
+                className="group cursor-pointer w-[220px] min-w-[220px] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="relative aspect-video">
+                  {video.thumbnail ? (
+                    <Image
+                      src={video.thumbnail}
+                      alt={video.title}
+                      fill
+                      sizes="220px"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-slate-200 text-xs text-slate-500">
+                      No thumbnail
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 top-2 flex justify-between px-3 text-[11px] font-semibold text-slate-800">
+                    <span className="rounded-full bg-white/85 px-2 py-1 shadow-sm">
+                      {video.language}
+                    </span>
+                    {video.level && (
+                      <span className="rounded-full bg-slate-900/80 px-2 py-1 text-white shadow-sm">
+                        {video.level}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-3">
+                  <div className="text-sm font-semibold text-slate-900 leading-snug h-[44px] overflow-hidden">
+                    {video.title}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-slate-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                      Quick start
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span>Tap to load</span>
+                  </div>
+                </div>
               </div>
-              <div className="p-2">
-                <div className="text-xs text-gray-500">{video.level}</div>
-                <div className="text-sm font-medium truncate">{video.title}</div>
-              </div>
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
         .animate-loop-scroll {
-          animation: loop-scroll 60s linear infinite;
+          animation: loop-scroll 70s linear infinite;
         }
 
         @keyframes loop-scroll {
@@ -49,7 +129,7 @@ export default function RecommendedVideos() {
             transform: translateX(0);
           }
           100% {
-            transform: translateX(-33.3333%);
+            transform: translateX(-35%);
           }
         }
       `}</style>

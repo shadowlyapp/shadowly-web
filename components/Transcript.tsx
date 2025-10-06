@@ -18,8 +18,6 @@ interface Props {
   allowScroll?: boolean;
   notifyManualScroll?: () => void;
   targetLang: string;
-  setTargetLang: (lang: string) => void;
-  languages: { code: string; name: string }[];
 }
 
 export default function Transcript({
@@ -30,8 +28,6 @@ export default function Transcript({
   allowScroll = true,
   notifyManualScroll,
   targetLang,
-  setTargetLang,
-  languages,
 }: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<HTMLParagraphElement | null>(null);
@@ -41,28 +37,116 @@ export default function Transcript({
     word: string;
     translation: string;
     position: { x: number; y: number };
+    lang: string;
+    loading: boolean;
   } | null>(null);
 
+  const fetchTranslation = async (word: string, language: string) => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/translate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word, source: "auto", target: language }),
+    });
+
+    const payload = await res
+      .json()
+      .catch(() => ({ error: "Unable to parse translation response" }));
+
+    if (!res.ok) {
+      throw new Error(payload?.details || payload?.error || `Translation failed with status ${res.status}`);
+    }
+
+    return (payload?.translatedText as string) || "";
+  };
+
   const handleWordClick = async (word: string, event: React.MouseEvent) => {
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+
+    setPopup({
+      word,
+      translation: "",
+      position: { x: rect.left, y: rect.bottom },
+      lang: targetLang,
+      loading: true,
+    });
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/translate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word, source: "en", target: targetLang }),
-      });
-
-      const data = await res.json();
-      const rect = (event.target as HTMLElement).getBoundingClientRect();
-
+      const translation = await fetchTranslation(word, targetLang);
       setPopup({
         word,
-        translation: data.translatedText,
+        translation,
         position: { x: rect.left, y: rect.bottom },
+        lang: targetLang,
+        loading: false,
       });
     } catch (err) {
       console.error("Translation error:", err);
+      setPopup((prev) =>
+        prev && prev.word === word
+          ? {
+              ...prev,
+              translation: "Translation unavailable at the moment.",
+              loading: false,
+            }
+          : prev
+      );
     }
   };
+
+  useEffect(() => {
+    if (!popup) return;
+    if (popup.lang === targetLang) return;
+
+    let cancelled = false;
+
+    const refresh = async () => {
+      setPopup((prev) =>
+        prev
+          ? {
+              ...prev,
+              lang: targetLang,
+              loading: true,
+            }
+          : prev
+      );
+
+      try {
+        const translation = await fetchTranslation(popup.word, targetLang);
+        if (!cancelled) {
+          setPopup((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  translation,
+                  lang: targetLang,
+                  loading: false,
+                }
+              : prev
+          );
+        }
+      } catch (err) {
+        console.error("Translation error (language switch):", err);
+        if (!cancelled) {
+          setPopup((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  translation: "Translation unavailable at the moment.",
+                  lang: targetLang,
+                  loading: false,
+                }
+              : prev
+          );
+        }
+      }
+    };
+
+    refresh();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [targetLang, popup]);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -80,6 +164,24 @@ export default function Transcript({
       wrapper.removeEventListener("touchstart", pause);
     };
   }, [notifyManualScroll]);
+
+  useEffect(() => {
+    if (!popup) return;
+
+    const handleGlobalInteraction = () => setPopup(null);
+
+    window.addEventListener("scroll", handleGlobalInteraction, true);
+    window.addEventListener("mousedown", handleGlobalInteraction, true);
+    window.addEventListener("touchstart", handleGlobalInteraction, true);
+    window.addEventListener("keydown", handleGlobalInteraction, true);
+
+    return () => {
+      window.removeEventListener("scroll", handleGlobalInteraction, true);
+      window.removeEventListener("mousedown", handleGlobalInteraction, true);
+      window.removeEventListener("touchstart", handleGlobalInteraction, true);
+      window.removeEventListener("keydown", handleGlobalInteraction, true);
+    };
+  }, [popup]);
 
   // Active index logic
   let activeIndex = -1;
@@ -147,6 +249,7 @@ export default function Transcript({
           <TranslationPopup
             word={popup.word}
             translation={popup.translation}
+            loading={popup.loading}
             position={popup.position}
             onClose={() => setPopup(null)}
           />
